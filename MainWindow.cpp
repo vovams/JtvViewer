@@ -17,7 +17,8 @@
 
 #include "TimeZoneDialog.h"
 
-const qint64 MainWindow::FILETIME_EPOCH_START = QDateTime(QDate(1601, 1, 1), QTime(0, 0), Qt::UTC).toMSecsSinceEpoch();
+const qint64 MainWindow::FILETIME_EPOCH_START =
+        QDateTime(QDate(1601, 1, 1), QTime(0, 0), Qt::UTC).toMSecsSinceEpoch();
 
 MainWindow::MainWindow(const QString& path, QWidget* parent)
     : QWidget(parent),
@@ -115,11 +116,13 @@ void MainWindow::dragEnterEvent(QDragEnterEvent* e)
     else
     {
         foreach (const QUrl url, e->mimeData()->urls())
+        {
             if (url.scheme() != "file")
             {
                 e->ignore();
                 return;
             }
+        }
 
         e->setDropAction(Qt::LinkAction);
         e->accept();
@@ -130,8 +133,10 @@ void MainWindow::dropEvent(QDropEvent* e)
 {
     QStringList files;
     foreach (const QUrl& url, e->mimeData()->urls())
+    {
         if (url.scheme() == "file")
             files.append(url.path());
+    }
 
     openFiles(files);
 
@@ -152,11 +157,13 @@ void MainWindow::openFiles(const QStringList& files)
     qSort(uniqFiles);
     QMutableListIterator<QString> f (uniqFiles);
     while (f.hasNext())
+    {
         if ( f.next().endsWith(".ndx", Qt::CaseInsensitive)
              && f.hasNext() && f.peekNext().endsWith(".pdt", Qt::CaseInsensitive)
              && f.peekNext().left(f.peekNext().length() - 4)
                         == f.peekPrevious().left(f.peekNext().length() - 4) )
             f.remove();
+    }
 
     if (!uniqFiles.empty())
     {
@@ -187,64 +194,84 @@ void MainWindow::openTvProgram(const QString& path)
     {
         QFile ndx (jtvBaseName + ".ndx");
         if (!ndx.open(QFile::ReadOnly))
+        {
             throw tr("Failed to open %1: %2")
                   .arg(ndx.fileName())
                   .arg(ndx.errorString());
+        }
 
         QFile pdt (jtvBaseName + ".pdt");
         if (!pdt.open(QFile::ReadOnly))
+        {
             throw tr("Failed to open %1: %2")
                   .arg(pdt.fileName())
                   .arg(pdt.errorString());
+        }
 
         quint16 entryCount;
         if (ndx.read((char*)&entryCount, sizeof(entryCount)) != sizeof(entryCount))
+        {
             throw tr("Failed to read entry count from %1: %2")
                   .arg(ndx.fileName())
                   .arg(ndx.errorString());
+        }
 
         for (uint entry = 1; entry <= entryCount; entry++)
         {
             if (ndx.read(2) != QByteArray("\x00\x00", 2))
-                throw tr("Failed to read entry %1 form %2: bad format (does not starts with0x00 0x00)")
+            {
+                throw tr("Failed to read entry %1 form %2: bad format (does not starts with 0x00"
+                         " 0x00)")
                       .arg(entry)
                       .arg(ndx.fileName());
+            }
 
             qint64 time;
             if (ndx.read((char*)&time, sizeof(time)) != sizeof(time))
+            {
                 throw tr("Failed to read entry %1 form %2: failed to read time: %3")
                       .arg(entry)
                       .arg(ndx.fileName())
                       .arg(ndx.errorString());
+            }
 
             quint16 pdtOffset;
             if (ndx.read((char*)&pdtOffset, sizeof(pdtOffset)) != sizeof(pdtOffset))
+            {
                 throw tr("Failed to read entry %1 from %2: failed to read offset: %3")
                       .arg(entry)
                       .arg(ndx.fileName())
                       .arg(ndx.errorString());
+            }
 
             if (!pdt.seek(pdtOffset))
+            {
                 throw tr("Failed to read entry %1 from %2: seek failed: %3")
                       .arg(entry)
                       .arg(pdt.fileName())
                       .arg(pdt.errorString());
+            }
 
             quint16 len;
             if (pdt.read((char*)&len, sizeof(len)) != sizeof(len))
+            {
                 throw tr("Failed to read entry %1 from %2: failed to read size: %3")
                       .arg(entry)
                       .arg(pdt.fileName())
                       .arg(pdt.errorString());
+            }
 
             QByteArray name = pdt.read(len);
             if (name.size() != len)
+            {
                 throw tr("Failed to read entry %1 from %2: failed to read name: %3")
                       .arg(entry)
                       .arg(pdt.fileName())
                       .arg(pdt.errorString());
+            }
 
-            QDateTime progTime = QDateTime::fromMSecsSinceEpoch(time / 10000 + FILETIME_EPOCH_START - timeZoneOffset * 1000);
+            QDateTime progTime = QDateTime::fromMSecsSinceEpoch(time / 10000 + FILETIME_EPOCH_START
+                                                                - timeZoneOffset * 1000);
             QString progName = QTextCodec::codecForName("cp1251")->toUnicode(name);
 
             addEntry(progTime, progName);
@@ -253,7 +280,7 @@ void MainWindow::openTvProgram(const QString& path)
         updateWindowTitle(QFileInfo(jtvBaseName).fileName());
         currentFilePath = jtvBaseName;
     }
-    catch (const QString& errorMessage)
+    catch (const QString& errorMessage) // yeah, this is a crapcode
     {
         QMessageBox::critical(this, tr("Error"), errorMessage);
     }
